@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 228 100% 99%;
+  --foreground: 225 39% 11%;
+  --card: 0 0% 100%;
+  --border: 220 28% 90%;
+  --muted: 220 27% 96%;
+  --primary: 239 84% 67%;
+}
+
+.dark {
+  --background: 222 47% 11%;
+  --foreground: 210 40% 98%;
+  --card: 221 39% 16%;
+  --border: 217 33% 22%;
+  --muted: 217 33% 20%;
+  --primary: 239 84% 67%;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-background text-foreground antialiased transition-colors duration-300;
+  background-image:
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.14), transparent 30%),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,0.72), transparent);
+}
+
+.dark body {
+  background-image:
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 26%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.7), transparent);
+}
