@@ -36,6 +36,11 @@ export type GoogleCalendarEvent = {
   source: "google";
 };
 
+export type CalendarRangeResponse = {
+  reminders: Reminder[];
+  events: GoogleCalendarEvent[];
+};
+
 export type CalendarItem = {
   id: string;
   title: string;

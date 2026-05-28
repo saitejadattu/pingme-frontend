@@ -3,11 +3,15 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { Reminder } from "../types";
 
-export function useReminders() {
+export function useReminders(enabled = true) {
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
 
   async function fetchReminders() {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const { data } = await api.get<Reminder[]>("/reminders");
@@ -18,8 +22,12 @@ export function useReminders() {
   }
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     void fetchReminders();
-  }, []);
+  }, [enabled]);
 
   return {
     reminders,

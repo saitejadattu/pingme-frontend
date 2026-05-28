@@ -11,6 +11,7 @@ import { cn } from "../lib/utils";
 type Props = {
   date: Date;
   items: CalendarItem[];
+  loading?: boolean;
   onBack?: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -21,7 +22,7 @@ type Props = {
   onDeleteGoogle: (id: string) => Promise<void>;
 };
 
-export function DayViewPanel({ date, items, onBack, onPrev, onNext, onDone, onDelete, onEdit, onEditGoogle, onDeleteGoogle }: Props) {
+export function DayViewPanel({ date, items, loading = false, onBack, onPrev, onNext, onDone, onDelete, onEdit, onEditGoogle, onDeleteGoogle }: Props) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -47,7 +48,14 @@ export function DayViewPanel({ date, items, onBack, onPrev, onNext, onDone, onDe
           </Button>
         </div>
       </div>
-      {items.length === 0 ? (
+      {loading ? (
+        <Card className="flex min-h-72 flex-col items-center justify-center gap-4 p-8 text-center">
+          <div className="text-xl font-semibold">Loading events...</div>
+          <p className="max-w-md text-sm text-slate-500 dark:text-slate-400">
+            Fetching Google Calendar events and PingMe reminders for this day.
+          </p>
+        </Card>
+      ) : items.length === 0 ? (
         <Card className="flex min-h-72 flex-col items-center justify-center gap-4 p-8 text-center">
           <div className="text-6xl">🗓️</div>
           <div className="text-xl font-semibold">Nothing on this day yet</div>

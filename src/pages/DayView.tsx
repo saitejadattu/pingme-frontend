@@ -7,7 +7,15 @@ import { DayViewPanel } from "../components/DayViewPanel";
 import { useToast } from "../components/ui/toast";
 import { useAuth } from "../hooks/useAuth";
 import { useReminders } from "../hooks/useReminders";
-import { CalendarItem, GoogleCalendarEvent, Reminder } from "../types";
+import {
+  clearCalendarRangeInFlight,
+  findCalendarRangeContaining,
+  getCalendarRangeCache,
+  getCalendarRangeInFlight,
+  setCalendarRangeCache,
+  setCalendarRangeInFlight,
+} from "../lib/calendarRangeCache";
+import { CalendarItem, CalendarRangeResponse, GoogleCalendarEvent, Reminder } from "../types";
 
 function applyGoogleEventTruth(reminder: Reminder, event?: GoogleCalendarEvent): Reminder {
   if (!event) return reminder;
@@ -21,32 +29,54 @@ function applyGoogleEventTruth(reminder: Reminder, event?: GoogleCalendarEvent):
 export default function DayView() {
   const { date } = useParams();
   const navigate = useNavigate();
-  const { reminders, setReminders } = useReminders();
-  const { showToast } = useToast();
   const { user } = useAuth();
+  const { reminders, setReminders } = useReminders(!user?.google_calendar_connected);
+  const { showToast } = useToast();
   const selectedDate = date ? new Date(`${date}T00:00:00`) : new Date();
   const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([]);
+  const [rangeLoading, setRangeLoading] = useState(Boolean(user?.google_calendar_connected));
 
   useEffect(() => {
     async function fetchGoogleEvents() {
       if (!user?.google_calendar_connected) {
         setGoogleEvents([]);
+        setRangeLoading(false);
         return;
       }
       const start = new Date(selectedDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(selectedDate);
       end.setHours(23, 59, 59, 999);
-      const [{ data: syncedReminders }, { data: events }] = await Promise.all([
-        api.post<Reminder[]>("/google-calendar/sync", null, {
-          params: { date_from: start.toISOString(), date_to: end.toISOString() },
-        }),
-        api.get<GoogleCalendarEvent[]>("/google-calendar/events", {
-          params: { date_from: start.toISOString(), date_to: end.toISOString() },
-        }),
-      ]);
-      setReminders(syncedReminders);
-      setGoogleEvents(events);
+      const rangeStart = start.toISOString();
+      const rangeEnd = end.toISOString();
+      const cacheKey = `${rangeStart}:${rangeEnd}`;
+      const cached =
+        getCalendarRangeCache(cacheKey) ??
+        findCalendarRangeContaining(rangeStart, rangeEnd);
+
+      if (cached) {
+        setReminders(cached.reminders);
+        setGoogleEvents(cached.events);
+        setRangeLoading(false);
+      } else {
+        setRangeLoading(true);
+      }
+
+      let request = getCalendarRangeInFlight(cacheKey);
+      if (!request) {
+        request = api
+          .get<CalendarRangeResponse>("/google-calendar/range", {
+            params: { date_from: rangeStart, date_to: rangeEnd },
+          })
+          .then((response) => response.data)
+          .finally(() => clearCalendarRangeInFlight(cacheKey));
+        setCalendarRangeInFlight(cacheKey, request);
+      }
+      const data = await request;
+      setCalendarRangeCache(cacheKey, rangeStart, rangeEnd, data);
+      setReminders(data.reminders);
+      setGoogleEvents(data.events);
+      setRangeLoading(false);
     }
 
     void fetchGoogleEvents();
@@ -181,7 +211,8 @@ export default function DayView() {
     <div className="mx-auto max-w-5xl px-4 py-6">
       <DayViewPanel
         date={selectedDate}
-        items={dayItems}
+        items={rangeLoading ? [] : dayItems}
+        loading={rangeLoading}
         onBack={() => navigate("/")}
         onPrev={() => navigate(`/day/${format(addDays(selectedDate, -1), "yyyy-MM-dd")}`)}
         onNext={() => navigate(`/day/${format(addDays(selectedDate, 1), "yyyy-MM-dd")}`)}

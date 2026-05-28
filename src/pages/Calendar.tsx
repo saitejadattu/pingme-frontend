@@ -20,7 +20,14 @@ import { Card } from "../components/ui/card";
 import { useToast } from "../components/ui/toast";
 import { useAuth } from "../hooks/useAuth";
 import { useReminders } from "../hooks/useReminders";
-import { CalendarItem, GoogleCalendarEvent, Reminder } from "../types";
+import {
+  clearCalendarRangeInFlight,
+  getCalendarRangeCache,
+  getCalendarRangeInFlight,
+  setCalendarRangeCache,
+  setCalendarRangeInFlight,
+} from "../lib/calendarRangeCache";
+import { CalendarItem, CalendarRangeResponse, GoogleCalendarEvent, Reminder } from "../types";
 
 function applyGoogleEventTruth(reminder: Reminder, event?: GoogleCalendarEvent): Reminder {
   if (!event) return reminder;
@@ -32,31 +39,48 @@ function applyGoogleEventTruth(reminder: Reminder, event?: GoogleCalendarEvent):
 }
 
 export default function CalendarPage() {
-  const { reminders, setReminders, loading } = useReminders();
+  const { user } = useAuth();
+  const { reminders, setReminders, loading } = useReminders(!user?.google_calendar_connected);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user } = useAuth();
   const [googleEvents, setGoogleEvents] = useState<GoogleCalendarEvent[]>([]);
+  const [rangeLoading, setRangeLoading] = useState(Boolean(user?.google_calendar_connected));
 
   useEffect(() => {
     async function fetchGoogleEvents() {
       if (!user?.google_calendar_connected) {
         setGoogleEvents([]);
+        setRangeLoading(false);
         return;
       }
       const rangeStart = startOfWeek(startOfMonth(currentMonth)).toISOString();
       const rangeEnd = endOfWeek(endOfMonth(currentMonth)).toISOString();
-      const [{ data: syncedReminders }, { data: events }] = await Promise.all([
-        api.post<Reminder[]>("/google-calendar/sync", null, {
-          params: { date_from: rangeStart, date_to: rangeEnd },
-        }),
-        api.get<GoogleCalendarEvent[]>("/google-calendar/events", {
-          params: { date_from: rangeStart, date_to: rangeEnd },
-        }),
-      ]);
-      setReminders(syncedReminders);
-      setGoogleEvents(events);
+      const cacheKey = `${rangeStart}:${rangeEnd}`;
+      const cached = getCalendarRangeCache(cacheKey);
+      if (cached) {
+        setReminders(cached.reminders);
+        setGoogleEvents(cached.events);
+        setRangeLoading(false);
+        return;
+      }
+
+      setRangeLoading(true);
+      let request = getCalendarRangeInFlight(cacheKey);
+      if (!request) {
+        request = api
+          .get<CalendarRangeResponse>("/google-calendar/range", {
+            params: { date_from: rangeStart, date_to: rangeEnd },
+          })
+          .then((response) => response.data)
+          .finally(() => clearCalendarRangeInFlight(cacheKey));
+        setCalendarRangeInFlight(cacheKey, request);
+      }
+      const data = await request;
+      setCalendarRangeCache(cacheKey, rangeStart, rangeEnd, data);
+      setReminders(data.reminders);
+      setGoogleEvents(data.events);
+      setRangeLoading(false);
     }
 
     void fetchGoogleEvents();
@@ -176,8 +200,8 @@ export default function CalendarPage() {
             Today
           </Button>
         </div>
-        {loading ? (
-          <div className="py-16 text-center text-sm text-slate-500 dark:text-slate-400">Loading reminders...</div>
+        {loading || rangeLoading ? (
+          <div className="py-16 text-center text-sm text-slate-500 dark:text-slate-400">Loading calendar events...</div>
         ) : (
           <CalendarGrid
             currentMonth={currentMonth}
