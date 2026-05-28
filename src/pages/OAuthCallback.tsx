@@ -24,6 +24,7 @@ export default function OAuthCallback() {
     const email = searchParams.get("email");
     const phone = searchParams.get("phone");
     const isVerified = searchParams.get("is_verified");
+    const googleCalendarConnected = searchParams.get("google_calendar_connected");
 
     if (!token || !id || !name || !email) {
       showToast("Google sign-in failed", "error");
@@ -37,6 +38,7 @@ export default function OAuthCallback() {
       email,
       phone: phone || null,
       is_verified: isVerified === "true",
+      google_calendar_connected: googleCalendarConnected === "true",
     });
   }, [navigate, searchParams, setOAuthAuth, showToast]);
 

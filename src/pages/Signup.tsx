@@ -81,6 +81,9 @@ export default function Signup() {
                 Continue with Google
               </Button>
             </a>
+            <p className="mt-2 text-center text-xs text-slate-400">
+              Google sign-in also connects your calendar for direct event sync.
+            </p>
           </>
         )}
         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">

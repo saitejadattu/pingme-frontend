@@ -78,14 +78,18 @@ export default function Profile() {
               placeholder="Phone"
             />
             <Card className="border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
-              PingMe now uses your Google Calendar as the source of truth. Connect direct Google Calendar sync so new reminders are created in your personal calendar immediately.
+              {user.google_calendar_connected
+                ? "PingMe already connected your Google Calendar during Google sign-in. New reminders will sync directly to your personal calendar."
+                : "PingMe uses Google Calendar as the source of truth. If you signed up with email and password, connect Google Calendar once here to sync reminders directly into your personal calendar."}
             </Card>
             <div className="flex flex-wrap gap-3">
               <Button type="submit">Save</Button>
-              <Button type="button" variant="outline" onClick={connectGoogle}>
-                <CalendarDays size={16} className="mr-2" />
-                {user.google_calendar_connected ? "Reconnect Google Calendar sync" : "Connect direct Google Calendar sync"}
-              </Button>
+              {!user.google_calendar_connected ? (
+                <Button type="button" variant="outline" onClick={connectGoogle}>
+                  <CalendarDays size={16} className="mr-2" />
+                  Connect Google Calendar
+                </Button>
+              ) : null}
             </div>
           </form>
         </div>

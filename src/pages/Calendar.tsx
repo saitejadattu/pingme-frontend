@@ -26,6 +26,8 @@ import {
   getCalendarRangeInFlight,
   setCalendarRangeCache,
   setCalendarRangeInFlight,
+  upsertGoogleEventIntoCalendarRangeCaches,
+  upsertReminderIntoCalendarRangeCaches,
 } from "../lib/calendarRangeCache";
 import { CalendarItem, CalendarRangeResponse, GoogleCalendarEvent, Reminder } from "../types";
 
@@ -162,6 +164,23 @@ export default function CalendarPage() {
         (a, b) => new Date(a.remind_at).getTime() - new Date(b.remind_at).getTime(),
       ),
     );
+    upsertReminderIntoCalendarRangeCaches(reminder);
+    if (reminder.google_event_id) {
+      const createdGoogleEvent: GoogleCalendarEvent = {
+        id: reminder.google_event_id,
+        title: reminder.title,
+        start: reminder.remind_at,
+        end: reminder.remind_at,
+        is_all_day: false,
+        source: "google",
+      };
+      setGoogleEvents((current) =>
+        [...current.filter((event) => event.id !== createdGoogleEvent.id), createdGoogleEvent].sort(
+          (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
+        ),
+      );
+      upsertGoogleEventIntoCalendarRangeCaches(createdGoogleEvent);
+    }
   }
 
   async function markDone(id: string) {

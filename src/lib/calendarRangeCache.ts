@@ -64,3 +64,45 @@ export function findCalendarRangeContaining(start: string, end: string) {
 
   return null;
 }
+
+export function upsertReminderIntoCalendarRangeCaches(reminder: Reminder) {
+  const reminderTime = new Date(reminder.remind_at).getTime();
+
+  for (const entry of cache.values()) {
+    if (Date.now() - entry.timestamp > TTL_MS) continue;
+    const entryStart = new Date(entry.start).getTime();
+    const entryEnd = new Date(entry.end).getTime();
+    if (entryStart <= reminderTime && entryEnd >= reminderTime) {
+      const reminders = [
+        ...entry.data.reminders.filter((item) => item.id !== reminder.id),
+        reminder,
+      ].sort((a, b) => new Date(a.remind_at).getTime() - new Date(b.remind_at).getTime());
+      entry.data = {
+        ...entry.data,
+        reminders,
+      };
+      entry.timestamp = Date.now();
+    }
+  }
+}
+
+export function upsertGoogleEventIntoCalendarRangeCaches(event: GoogleCalendarEvent) {
+  const eventTime = new Date(event.start).getTime();
+
+  for (const entry of cache.values()) {
+    if (Date.now() - entry.timestamp > TTL_MS) continue;
+    const entryStart = new Date(entry.start).getTime();
+    const entryEnd = new Date(entry.end).getTime();
+    if (entryStart <= eventTime && entryEnd >= eventTime) {
+      const events = [
+        ...entry.data.events.filter((item) => item.id !== event.id),
+        event,
+      ].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+      entry.data = {
+        ...entry.data,
+        events,
+      };
+      entry.timestamp = Date.now();
+    }
+  }
+}

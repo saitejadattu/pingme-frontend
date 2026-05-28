@@ -77,6 +77,9 @@ export default function Login() {
             Continue with Google
           </Button>
         </a>
+        <p className="mt-2 text-center text-xs text-slate-400">
+          Google sign-in also grants calendar access for reminder sync.
+        </p>
         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
           New here?{" "}
           <Link to="/signup" className="font-semibold text-indigo-600 dark:text-indigo-400">
