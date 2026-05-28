@@ -37,14 +37,16 @@ export default function DayView() {
       start.setHours(0, 0, 0, 0);
       const end = new Date(selectedDate);
       end.setHours(23, 59, 59, 999);
-      const { data: syncedReminders } = await api.post<Reminder[]>("/google-calendar/sync", null, {
-        params: { date_from: start.toISOString(), date_to: end.toISOString() },
-      });
+      const [{ data: syncedReminders }, { data: events }] = await Promise.all([
+        api.post<Reminder[]>("/google-calendar/sync", null, {
+          params: { date_from: start.toISOString(), date_to: end.toISOString() },
+        }),
+        api.get<GoogleCalendarEvent[]>("/google-calendar/events", {
+          params: { date_from: start.toISOString(), date_to: end.toISOString() },
+        }),
+      ]);
       setReminders(syncedReminders);
-      const { data } = await api.get<GoogleCalendarEvent[]>("/google-calendar/events", {
-        params: { date_from: start.toISOString(), date_to: end.toISOString() },
-      });
-      setGoogleEvents(data);
+      setGoogleEvents(events);
     }
 
     void fetchGoogleEvents();
@@ -79,7 +81,7 @@ export default function DayView() {
         reminder_id: item.id,
         title: item.title,
         start: item.remind_at,
-        end: item.remind_at,
+        end: item.google_event_id ? googleEventsById.get(item.google_event_id)?.end ?? item.remind_at : item.remind_at,
         source: "pingme" as const,
         sync_source: item.sync_source ?? "pingme",
         is_done: item.is_done,
@@ -88,10 +90,11 @@ export default function DayView() {
         client_topic: item.client_topic,
         client_message: item.client_message,
         google_event_id: item.google_event_id,
-        is_all_day: false,
+        is_all_day: item.google_event_id ? Boolean(googleEventsById.get(item.google_event_id)?.is_all_day) : false,
       }));
     const reminderGoogleIds = new Set(reminderItems.map((item) => item.google_event_id).filter(Boolean));
     const googleOnlyItems = googleEvents
+      .filter((event) => isSameDay(new Date(event.start), selectedDate))
       .filter((event) => !reminderGoogleIds.has(event.id))
       .map((event) => ({
         id: event.id,
@@ -104,7 +107,7 @@ export default function DayView() {
     return [...reminderItems, ...googleOnlyItems].sort(
       (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
     );
-  }, [googleEvents, mergedDayReminders]);
+  }, [googleEvents, googleEventsById, mergedDayReminders]);
 
   async function onDone(id: string) {
     const { data } = await api.patch<Reminder>(`/reminders/${id}/done`);
@@ -134,6 +137,46 @@ export default function DayView() {
     showToast("Reminder updated! ✓", "success");
   }
 
+  async function onEditGoogle(
+    id: string,
+    payload: { title: string; start: string; end: string; is_all_day: boolean },
+  ) {
+    await api.patch(`/google-calendar/events/${id}`, payload);
+    setGoogleEvents((current) =>
+      current.map((event) =>
+        event.id === id
+          ? {
+              ...event,
+              title: payload.title,
+              start: payload.start,
+              end: payload.end,
+              is_all_day: payload.is_all_day,
+            }
+          : event,
+      ),
+    );
+    setReminders((current) =>
+      current.map((item) =>
+        item.google_event_id === id
+          ? {
+              ...item,
+              title: payload.title,
+              remind_at: payload.start,
+              raw_input: item.sync_source === "google" ? payload.title : item.raw_input,
+            }
+          : item,
+      ),
+    );
+    showToast("Google event updated! ✓", "success");
+  }
+
+  async function onDeleteGoogle(id: string) {
+    await api.delete(`/google-calendar/events/${id}`);
+    setGoogleEvents((current) => current.filter((event) => event.id !== id));
+    setReminders((current) => current.filter((item) => item.google_event_id !== id));
+    showToast("Google event deleted", "muted");
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <DayViewPanel
@@ -145,6 +188,8 @@ export default function DayView() {
         onDone={onDone}
         onDelete={onDelete}
         onEdit={onEdit}
+        onEditGoogle={onEditGoogle}
+        onDeleteGoogle={onDeleteGoogle}
       />
     </div>
   );

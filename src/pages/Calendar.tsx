@@ -47,14 +47,16 @@ export default function CalendarPage() {
       }
       const rangeStart = startOfWeek(startOfMonth(currentMonth)).toISOString();
       const rangeEnd = endOfWeek(endOfMonth(currentMonth)).toISOString();
-      const { data: syncedReminders } = await api.post<Reminder[]>("/google-calendar/sync", null, {
-        params: { date_from: rangeStart, date_to: rangeEnd },
-      });
+      const [{ data: syncedReminders }, { data: events }] = await Promise.all([
+        api.post<Reminder[]>("/google-calendar/sync", null, {
+          params: { date_from: rangeStart, date_to: rangeEnd },
+        }),
+        api.get<GoogleCalendarEvent[]>("/google-calendar/events", {
+          params: { date_from: rangeStart, date_to: rangeEnd },
+        }),
+      ]);
       setReminders(syncedReminders);
-      const { data } = await api.get<GoogleCalendarEvent[]>("/google-calendar/events", {
-        params: { date_from: rangeStart, date_to: rangeEnd },
-      });
-      setGoogleEvents(data);
+      setGoogleEvents(events);
     }
 
     void fetchGoogleEvents();

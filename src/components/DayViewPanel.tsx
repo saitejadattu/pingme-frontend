@@ -2,6 +2,7 @@ import { addDays, format } from "date-fns";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { CalendarItem } from "../types";
+import { GoogleEventCard } from "./GoogleEventCard";
 import { ReminderCard, ReminderEditPayload } from "./ReminderCard";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -16,9 +17,11 @@ type Props = {
   onDone: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (id: string, payload: ReminderEditPayload) => Promise<void>;
+  onEditGoogle: (id: string, payload: { title: string; start: string; end: string; is_all_day: boolean }) => Promise<void>;
+  onDeleteGoogle: (id: string) => Promise<void>;
 };
 
-export function DayViewPanel({ date, items, onBack, onPrev, onNext, onDone, onDelete, onEdit }: Props) {
+export function DayViewPanel({ date, items, onBack, onPrev, onNext, onDone, onDelete, onEdit, onEditGoogle, onDeleteGoogle }: Props) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -55,6 +58,24 @@ export function DayViewPanel({ date, items, onBack, onPrev, onNext, onDone, onDe
       ) : (
         <div className="space-y-4">
           {items.map((item) => {
+            if (item.sync_source === "google" && item.google_event_id) {
+              return (
+                <GoogleEventCard
+                  key={item.id}
+                  event={{
+                    id: item.google_event_id,
+                    title: item.title,
+                    start: item.start,
+                    end: item.end,
+                    is_all_day: Boolean(item.is_all_day),
+                    source: "google",
+                  }}
+                  onEdit={onEditGoogle}
+                  onDelete={onDeleteGoogle}
+                />
+              );
+            }
+
             if (item.reminder_id) {
               return (
                 <ReminderCard
@@ -83,19 +104,19 @@ export function DayViewPanel({ date, items, onBack, onPrev, onNext, onDone, onDe
             }
 
             return (
-              <Card key={item.id} className="overflow-hidden">
-                <div className={cn("flex items-start gap-4 border-l-4 p-5", "border-emerald-500")}>
-                  <div className="flex-1">
-                    <div className="text-lg font-semibold">{item.title}</div>
-                    <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                      {item.is_all_day ? "All day" : format(new Date(item.start), "h:mm a")}
-                    </div>
-                    <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200">
-                      Google Calendar
-                    </div>
-                  </div>
-                </div>
-              </Card>
+              <GoogleEventCard
+                key={item.id}
+                event={{
+                  id: item.id,
+                  title: item.title,
+                  start: item.start,
+                  end: item.end,
+                  is_all_day: Boolean(item.is_all_day),
+                  source: "google",
+                }}
+                onEdit={onEditGoogle}
+                onDelete={onDeleteGoogle}
+              />
             );
           })}
         </div>
